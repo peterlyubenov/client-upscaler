@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ESRGAN Upscaler</title>
+  <meta name="description" content="Private, in-browser image upscaling with Real-ESRGAN models on WebGPU and WASM.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2306070b'/%3E%3Cpath d='M8 24V8h6v6h10v10z' fill='%23ff4fa3'/%3E%3Crect x='14' y='8' width='10' height='6' fill='%235ef2ff'/%3E%3C/svg%3E">
+</head>
+<body>
+<div class="app">
+  <div class="haze" style="width:520px;height:420px;left:-140px;top:-120px;background:var(--signal)"></div>
+  <div class="haze" style="width:460px;height:380px;right:-124px;bottom:-122px;background:var(--neon);opacity:.35"></div>
+
+  <main class="grid">
+    <div class="col">
+      <section class="glass panel" id="input-panel">
+        <div class="label">Input</div>
+        <button class="drop" id="drop" type="button">
+          <span id="drop-text">Drag images or click to browse</span>
+        </button>
+        <input id="file" type="file" accept="image/*" multiple hidden>
+        <div id="files" class="files" hidden>
+          <div class="file-row">
+            <div class="thumb big"><canvas id="cur-thumb" width="72" height="72"></canvas></div>
+            <div class="file-meta">
+              <div class="mono ellip" id="cur-name"></div>
+              <div class="label" id="cur-info" style="margin-top:var(--space-1)"></div>
+            </div>
+            <button class="icon-btn" id="clear" type="button" aria-label="Remove all images" title="Remove all">✕</button>
+          </div>
+          <div class="strip" id="strip" role="listbox" aria-label="Selected images"></div>
+        </div>
+      </section>
+
+      <section class="glass panel" id="params" style="position:relative">
+        <div class="label">Params</div>
+        <div>
+          <div class="body">Upscale resolution</div>
+          <div class="switch" id="scale" role="radiogroup" aria-label="Upscale resolution" data-value="2">
+            <span class="sw-thumb" aria-hidden="true"></span>
+            <button type="button" role="radio" aria-checked="true" data-v="2" class="mono">2×</button>
+            <button type="button" role="radio" aria-checked="false" data-v="4" class="mono">4×</button>
+          </div>
+          <div class="label hint" id="scale-hint"></div>
+        </div>
+        <div class="rule"></div>
+        <div class="label">Model</div>
+        <div role="radiogroup" aria-label="Models" id="models" class="models"></div>
+        </section>
+
+      <button class="run" id="run" type="button" disabled>Upscale</button>
+      <div class="runtime mono" id="runtime"></div>
+    </div>
+
+    <section class="glass viewer">
+      <div class="viewport" id="viewport"></div>
+      <div class="toasts" id="toasts" aria-live="polite"></div>
+      <div class="glass strong outbar" id="outbar" hidden>
+        <div class="out-text">
+          <div class="out-title" id="out-title"></div>
+          <div class="mono muted small ellip" id="out-sub"></div>
+        </div>
+        <div class="out-actions">
+          <button class="btn" id="dl-one" type="button">Download this image</button>
+          <button class="btn accent" id="dl-all" type="button">Download all</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="glass strong pop" id="pop" role="dialog" hidden></div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
