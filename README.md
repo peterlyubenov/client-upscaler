@@ -1,7 +1,7 @@
 # Client-side ESRGAN upscaler
 
 Runs entirely in the browser: pick one or many images, choose **2×** or **4×** and a model, press **Upscale**.
-Inference uses [ONNX Runtime Web](https://onnxruntime.ai/) on **WebGPU** (fp16 weights when the GPU supports
+Inference runs in a Web Worker (the page stays responsive) using [ONNX Runtime Web](https://onnxruntime.ai/) on **WebGPU** (fp16 weights when the GPU supports
 `shader-f16`) with an automatic **WASM** fallback. Nothing is uploaded.
 
 - Models download on first use from Hugging Face and are stored in the browser Cache Storage
@@ -22,6 +22,17 @@ npm run build    # outputs dist/
 The dev/preview servers send COOP/COEP headers so WASM can use threads. If you host `dist/` yourself, send the same
 headers (`Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp`) for multi-threaded WASM;
 without them everything still works, single-threaded.
+
+## Deploy to GitHub Pages
+
+`.github/workflows/deploy.yml` builds and publishes `dist/` on every push to `main`. One-time setup:
+
+1. Create the repo and push (`gh repo create client-upscaler --public --source . --push`).
+2. In the repo go to **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+3. The site appears at `https://<user>.github.io/client-upscaler/` after the workflow finishes.
+
+Pages can't send COOP/COEP headers, so `public/coi-sw.js` (a tiny service worker) adds them. The first visit
+reloads once to activate it; after that WASM runs multi-threaded. Asset paths are relative, so any sub-path works.
 
 ## Models
 

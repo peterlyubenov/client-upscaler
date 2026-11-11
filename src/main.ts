@@ -7,7 +7,8 @@ import './style.css';
 import { zipSync } from 'fflate';
 import { MODELS, mb, type ModelDef, type ModelFile } from './models';
 import { isCached, loadModel, partialBytes } from './cache';
-import { Aborted, createSession, detectRuntime, halve, releaseSession, runPass, tileCount, type Pixels, type Runtime, type Session } from './engine';
+import { detectRuntime, loadSession, upscale, type Runtime } from './engineClient';
+import { Aborted, tileCount, type Pixels } from './pixels';
 import { Viewer } from './viewer';
 import { toast, type Toast } from './toast';
 
@@ -33,7 +34,11 @@ let infoFor: string | null = null;
 let busy = false;
 let abort: AbortController | null = null;
 let rt: Runtime = { gpu: false, f16: false, label: 'detecting…' };
-let session: { key: string; s: Session } | null = null;
+interface Loaded {
+  key: string;
+  ep: 'webgpu' | 'wasm';
+}
+let session: Loaded | null = null;
 const cachedFlags = new Map<string, boolean>();
 
 const viewer = new Viewer($('viewport'));
@@ -377,10 +382,9 @@ function applyAlpha(src: Pixels, out: Pixels) {
   for (let i = 0; i < out.w * out.h; i++) out.data[i * 4 + 3] = ad[i * 4];
 }
 
-async function getSession(m: ModelDef, kind: 'fp16' | 'fp32', file: ModelFile, t: Toast, signal: AbortSignal): Promise<Session> {
+async function getSession(m: ModelDef, kind: 'fp16' | 'fp32', file: ModelFile, t: Toast, signal: AbortSignal): Promise<Loaded> {
   const key = `${m.id}:${kind}`;
-  if (session?.key === key) return session.s;
-  await releaseSession(session?.s ?? null);
+  if (session?.key === key) return session;
   session = null;
   const resumed = partialBytes(file.url);
   const cachedBefore = await isCached(file.url);
@@ -400,22 +404,16 @@ async function getSession(m: ModelDef, kind: 'fp16' | 'fp32', file: ModelFile, t
     renderModels();
   }
   t.update({ title: 'Preparing model', sub: `${m.name} · ${rt.gpu ? 'compiling for WebGPU' : 'initialising WASM'}` });
-  const s = await createSession(buf, rt);
-  session = { key, s };
-  return s;
+  const ep = await loadSession(buf, rt.gpu);
+  return (session = { key, ep });
 }
 
-async function upscaleOne(it: Item, s: Session, m: ModelDef, tile: number, onPass: (p: number, passes: number, done: number, total: number) => void, signal: AbortSignal) {
+async function upscaleOne(it: Item, m: ModelDef, tile: number, onPass: (p: number, passes: number, done: number, total: number) => void, signal: AbortSignal) {
   const passes = scale > m.scale ? Math.round(Math.log(scale / m.scale) / Math.log(m.scale)) + 1 : 1;
   const total = tileCount(it.w, it.h, passes, tile, m.scale);
-  let done = 0;
   const id = it.src.getContext('2d')!.getImageData(0, 0, it.w, it.h);
   const original: Pixels = { data: id.data, w: it.w, h: it.h };
-  let px = original;
-  for (let p = 1; p <= passes; p++) {
-    px = await runPass(s, px, m.scale, tile, () => onPass(p, passes, ++done, total), signal);
-  }
-  if (m.scale > scale) px = halve(px);
+  const px = await upscale(original, { nativeScale: m.scale, passes, downscale: m.scale > scale, tile }, (p, d) => onPass(p, passes, d, total), signal);
   if (hasAlpha(original.data)) applyAlpha(original, px);
   const c = document.createElement('canvas');
   c.width = px.w;
@@ -457,7 +455,7 @@ async function run() {
     actions: [{ label: 'Cancel', run: () => abort?.abort() }],
   });
   try {
-    let s: Session;
+    let s: Loaded;
     try {
       s = await getSession(m, v.kind, v.file, t, signal);
     } catch (e) {
@@ -472,7 +470,6 @@ async function run() {
       t.update({ title: 'Upscaling', sub: `${i + 1} of ${targets.length} images · starting…`, pct: 0 });
       const c = await upscaleOne(
         it,
-        s,
         m,
         tile,
         (p, passes, d, tot) => {

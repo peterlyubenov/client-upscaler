@@ -6,6 +6,20 @@
   <title>ESRGAN Upscaler</title>
   <meta name="description" content="Private, in-browser image upscaling with Real-ESRGAN models on WebGPU and WASM.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2306070b'/%3E%3Cpath d='M8 24V8h6v6h10v10z' fill='%23ff4fa3'/%3E%3Crect x='14' y='8' width='10' height='6' fill='%235ef2ff'/%3E%3C/svg%3E">
+  <script>
+    // Static hosts can't send COOP/COEP; a tiny service worker adds them so WASM threads work.
+    (function () {
+      if (crossOriginIsolated || !('serviceWorker' in navigator) || !isSecureContext) return;
+      var tried = false;
+      try { tried = sessionStorage.getItem('coi-tried') === '1'; sessionStorage.setItem('coi-tried', '1'); } catch (e) {}
+      navigator.serviceWorker.register('./coi-sw.js').then(function (reg) {
+        if (!tried && !navigator.serviceWorker.controller) {
+          var go = function () { location.reload(); };
+          if (reg.active) go(); else navigator.serviceWorker.addEventListener('controllerchange', go);
+        }
+      }).catch(function () {});
+    })();
+  </script>
 </head>
 <body>
 <div class="app">

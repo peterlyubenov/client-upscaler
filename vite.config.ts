@@ -11,6 +11,8 @@ export default defineConfig({
   base: './',
   server: { headers: isolation },
   preview: { headers: isolation },
+  resolve: { conditions: ['onnxruntime-web-use-extern-wasm'] },
+  worker: { format: 'es' },
   optimizeDeps: { exclude: ['onnxruntime-web'] },
   build: { target: 'es2022' },
 });
